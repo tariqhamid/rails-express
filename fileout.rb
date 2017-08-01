@@ -2,7 +2,7 @@
 # Rails Express
 # fileout.rb
 #
-# 2017-07-29 15:48:46 UTC
+# 2017-08-01 17:20:56 UTC
 # ==========================
 
 class Object
@@ -49,24 +49,35 @@ end # def
 
 end # class
 
-class Applications < Object
-end # class
+class Application < Object
 
-class Demos < Applications
-end # class
-
-class EditorDemo < Demos
-
-def self.open
-    EditorWindow.open
+def self.start
+    print 'Application start'
 end # def
 
 end # class
 
-class PaperDemo < Demos
+class Demo < Application
+end # class
+
+class PaperDemo < Demo
 
 def self.open
     PaperWindow.open
+end # def
+
+end # class
+
+class Game < Application
+end # class
+
+class TicTacToe < Game
+
+def self.start
+    # TicTacToe.start
+    TranscriptWindow.open
+    $transcript.set_taller
+    TicTacToeWindow.open
 end # def
 
 end # class
@@ -136,8 +147,16 @@ end # class
 
 class Widget < Ui
 
+def self.create_button
+    self.create 'qx.ui.form.Button'
+end # def
+
 def self.create_composite
     self.create 'qx.ui.container.Composite'
+end # def
+
+def self.create_decorator
+    self.create 'qx.ui.decoration.Decorator'
 end # def
 
 def self.create_dock
@@ -146,6 +165,10 @@ end # def
 
 def self.create_form
     self.create :form_widget
+end # def
+
+def self.create_grid_layout
+    self.create 'qx.ui.layout.Grid'
 end # def
 
 def self.create_hbox
@@ -244,7 +267,11 @@ def add_button_bar
 end # def
 
 def add_button_bar_text_fields
-    nil
+    if self.default_bb_text_field_width > 0
+        @bbar_text_field = Widget.create_textfield
+        @bbar_text_field.setWidth self.default_bb_text_field_width
+        @bbar.add @bbar_text_field
+    end
 end # def
 
 def add_buttons
@@ -265,6 +292,10 @@ end # def
 
 def default_actions
     []
+end # def
+
+def default_bb_text_field_width
+    -1
 end # def
 
 def default_buttons
@@ -351,7 +382,522 @@ end # def
 
 end # class
 
-class ClassBrowserWindow < Window
+class GameWindow < Window
+
+def alert_msg(msg)
+    self.prn '** %s' % msg
+end # def
+
+def default_height
+    475
+end # def
+
+def default_width
+    475
+end # def
+
+def info_msg(msg)
+    self.prn '-- %s' % msg
+end # def
+
+def status_msg(msg)
+    self.prn '== %s' % msg
+end # def
+
+def strong_msg(msg)
+    self.prn '** %s' % msg.upcase
+end # def
+
+end # class
+
+class PaperWindow < GameWindow
+
+def add_content
+    @paper = Widget.create_paper
+    @win.add @paper
+end # def
+
+def default_buttons
+    [
+        ['Clear', :on_clear]
+    ]
+end # def
+
+def default_caption
+    'Paper Graphics'
+end # def
+
+def on_clear
+    @paper.clear
+end # def
+
+end # class
+
+class TiledGameWindow < GameWindow
+
+def add_content
+    @tile_map = {}
+    cls = @tile_map.class
+    @tile_panel = Widget.create_composite
+    @tile_panel.setBackgroundColor '#ccc'
+    @layout = Widget.create_grid_layout
+    @tile_panel.setLayout @layout
+    self.set_layout_flex
+    self.add_tiles
+    @win.add @tile_panel, {edge: 'center'}
+    self.add_winner_patterns
+    self.reset
+end # def
+
+def add_tile(x, y)
+    tile = Widget.create 'qx.ui.form.Button', self
+    tile.setMargin 1
+    tile.setRich true
+    decorator = Widget.create_decorator
+    decorator.setBackgroundColor 'white'
+    tile.setDecorator decorator
+    key = self.create_key x, y
+    tile.on :click, :on_tile_clicked, {x: x, y: y, key: key}
+    @tile_panel.add tile, {column: x, row: y}
+    @tile_map[key] = tile
+end # def
+
+def add_tiles
+    y = 0
+    while y < self.tile_size_y
+        x = 0
+        while x < self.tile_size_x
+            self.add_tile x, y
+            x += 1
+        end
+        y += 1
+    end
+end # def
+
+def add_winner_patterns
+    @winner_patterns = [
+        [0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8],
+        [0, 3, 6],
+        [1, 4, 7],
+        [2, 5, 8],
+        [0, 4, 8],
+        [2, 4, 6]
+    ]
+end # def
+
+def change_player
+    if @human_plays
+        @human_plays = false
+    else
+        @human_plays = true
+    end
+end # def
+
+def check_end_of_game
+    return if @game_over
+    if @filled_tiles.index(nil).nil?
+        @game_over = true
+    end
+    unless @game_over
+        self.change_player
+        unless @human_plays
+            self.play_robot
+        end
+    end
+    unless @displayed_winner
+        if @game_over
+            @displayed_winner = true
+            self.status_msg 'GAME OVER'
+        end
+    end
+end # def
+
+def check_pattern(pattern)
+    i = 0
+    hits = 0
+    player = nil
+    while i < pattern.size
+        index = pattern[i]
+        x = @filled_tiles[index]
+        unless x.nil?
+            if player.nil?
+                player = x
+            end
+            if player == x 
+                hits += 1
+            end
+        end
+        i += 1
+    end
+    if hits == pattern.size
+        @game_over = true
+        self.strong_msg '%s wins!' % self.get_player_name
+    end
+end # def
+
+def check_winner
+    i = 0
+    while i < @winner_patterns.size
+        self.check_pattern @winner_patterns[i]
+        i += 1
+    end
+end # def
+
+def create_key(x, y)
+   'x:%s-y:%s' % [x, y]
+end # def
+
+def default_buttons
+    [
+        ['Reset', :on_reset]
+    ]
+end # def
+
+def format_label(label)
+    style = 'font-size:4em;font-weight:bold;'
+    '<span style="%s">%s</span>' % [style, label]
+end # def
+
+def get_marker
+    if @human_plays
+        'X'
+    else
+        'O'
+    end
+end # def
+
+def get_player_name
+    if @human_plays
+        'human'
+    else
+        'robot'
+    end
+end # def
+
+def mark_tile(x, y, tile)
+    player_name = self.get_player_name
+    marker = self.get_marker
+    tile.setLabel self.format_label(marker)
+    index = y * self.tile_size_x + x
+    @filled_tiles[index] = marker
+    msg = '%s plays %s at %s, %s' % [get_player_name, marker, x, y]
+    self.info_msg msg
+    self.check_winner
+    self.check_end_of_game
+end # def
+
+def mark_tile_x_y(x, y)
+    key = self.create_key x, y 
+    tile = @tile_map[key]
+    self.mark_tile x, y, tile
+end # def
+
+def on_reset
+    self.reset
+end # def
+
+def on_tile_clicked(arg)
+    unless @game_over
+        x = arg['x']
+        y = arg['y']
+        key = arg['key']
+        tile = @tile_map[key]
+        self.mark_tile x, y, tile
+    end
+end # def
+
+def play_robot
+    unless @game_over
+        index = @filled_tiles.index nil
+        y = index / self.tile_size_x
+        x = index % self.tile_size_x
+        self.mark_tile_x_y x, y
+    end
+end # def
+
+def reset
+    $transcript.clear
+    @filled_tiles = []
+    @displayed_winner = false
+    @game_over = false
+    @human_plays = true
+    values = @tile_map.values
+    i = 0
+    while i < values.size
+        @filled_tiles.push nil
+        v = values[i]
+        v.setLabel ''
+        i += 1
+    end
+    self.status_msg 'human starts'
+end # def
+
+def set_layout_flex
+    x = 0
+    while x < self.tile_size_x
+        @layout.setColumnFlex x, 1
+        x += 1
+    end
+    y = 0
+    while y < self.tile_size_y
+        @layout.setRowFlex y, 1
+        y += 1
+    end
+end # def
+
+def tile_size
+    2
+end # def
+
+def tile_size_x
+    self.tile_size
+end # def
+
+def tile_size_y
+    self.tile_size
+end # def
+
+end # class
+
+class TicTacToeWindow < TiledGameWindow
+
+def default_caption
+    'Tic-Tac-Toe'
+end # def
+
+def tile_size
+    3
+end # def
+
+end # class
+
+class ModelBrowserWindow < Window
+
+def add_content
+    @split = Widget.create_split_pane
+    self.add_list
+    self.add_detail
+    @win.add @split, {edge: 'center'}
+end # def
+
+def add_detail
+    @form = Widget.create_form
+    @form.add_fields self.get_fields
+    @split.add @form
+end # def
+
+def add_list
+    @list = Widget.create :table_widget, self
+    @list.set_columns self.get_columns
+    @split.add @list
+    @list.on :changeSelection, :on_change_selection
+end # def
+
+def clear
+    @id = -1
+    @list.reset_selection
+    self.clear_bbar
+    self.clear_detail
+end # def
+
+def clear_bbar
+    if self.default_bb_text_field_width > 0
+        @bbar_text_field.setValue ''
+    end
+end # def
+
+def clear_detail
+    @form.reset
+end # def
+
+def default_buttons
+    refresh_btn = ['Refresh', :on_refresh]
+    save_btn = ['Save', :on_save]
+    save_btn.push self.get_save_fields unless self.get_save_fields.nil?
+    new_btn = ['New', :on_new]
+    delete_btn = ['Delete', :on_delete]
+    btns = []
+    btns.push refresh_btn
+    btns.push save_btn
+    btns.push new_btn
+    btns.push delete_btn
+    btns
+end # def
+
+def default_caption
+    'Model Browser'
+end # def
+
+def default_height
+    375
+end # def
+
+def default_width
+    525
+end # def
+
+def get_columns
+    Model.model_columns self.get_model_name
+end # def
+
+def get_data
+    Model.model_data self.get_model_name
+end # def
+
+def get_fields
+    Model.model_fields self.get_model_name
+end # def
+
+def get_model_name
+    :dummy
+end # def
+
+def get_save_fields
+    [[:get_save_fields, @form]]
+end # def
+
+def list
+    @list
+end # def
+
+def on_appear
+    self.refresh
+end # def
+
+def on_change_selection(id)
+    record = Model.model_record self.get_model_name, id
+    unless record.nil?
+        @id = id
+        @form.update record
+    end
+end # def
+
+def on_delete
+    Model.model_delete self.get_model_name, @id
+    self.refresh
+end # def
+
+def on_new
+    self.clear
+end # def
+
+def on_refresh
+    self.refresh
+end # def
+
+def on_save(arg)
+    self.prn arg.to_s
+end # def
+
+def refresh
+    @list.set_data self.get_data
+    self.clear
+end # def
+
+end # class
+
+class AppBrowserWindow < ModelBrowserWindow
+
+def default_caption
+    'App Browser'
+end # def
+
+def get_model_name
+    :app
+end # def
+
+def on_save(arg)
+    owner = arg['owner']
+    title = arg['title']
+    tag = arg['tag']
+    cmd = arg['cmd']
+    Model.model_save self.get_model_name, @id, owner, title, tag, cmd
+    self.refresh
+end # def
+
+end # class
+
+class HelpBrowserWindow < ModelBrowserWindow
+
+def add_detail
+    @editor = Widget.create_tinymce_editor
+    @split.add @editor
+end # def
+
+def clear_detail
+    @editor.set_value ''
+end # def
+
+def default_bb_text_field_width
+    250
+end # def
+
+def default_caption
+    'Help Browser'
+end # def
+
+def get_model_name
+    :help
+end # def
+
+def get_save_fields
+    [[:getValue, @bbar_text_field], [:get_value, @editor]]
+end # def
+
+def on_change_selection(id)
+    record = Model.model_record self.get_model_name, id
+    unless record.nil?
+        @id = record['id']
+        @bbar_text_field.setValue record['topic']
+        @editor.set_value record['text']
+    end
+end # def
+
+def on_save(topic, text)
+    Model.model_save self.get_model_name, @id, topic, text
+    self.refresh
+end # def
+
+end # class
+
+class MessageBrowserWindow < ModelBrowserWindow
+
+def default_caption
+    'Message Browser'
+end # def
+
+def get_model_name
+    :message
+end # def
+
+end # class
+
+class UserBrowserWindow < ModelBrowserWindow
+
+def default_caption
+    'User Browser'
+end # def
+
+def get_model_name
+    :user
+end # def
+
+def on_save(arg)
+    email = arg['email']
+    first_name = arg['first_name']
+    last_name = arg['last_name']
+    Model.model_save self.get_model_name, @id, email, first_name, last_name
+    self.refresh
+end # def
+
+end # class
+
+class ToolWindow < Window
+end # class
+
+class ClassBrowserWindow < ToolWindow
 
 def add_content
     @vsplit = Widget.create 'qx.ui.splitpane.Pane', nil, 'vertical'
@@ -405,125 +951,7 @@ end # def
 
 end # class
 
-class EditorWindow < Window
-
-def add_content
-    @editor = Widget.create_tinymce_editor
-    @win.add @editor
-end # def
-
-def default_buttons
-    [
-        ['Clear', :on_clear]
-    ]
-end # def
-
-def default_caption
-    'Rich Text Editor'
-end # def
-
-def on_clear
-    @editor.set_value ''
-end # def
-
-end # class
-
-class HelpBrowserWindow < Window
-
-def add_button_bar_text_fields
-    @id = -1
-    @text_field = Widget.create_textfield
-    @text_field.setWidth 250
-    @bbar.add @text_field
-end # def
-
-def add_content
-    @split = Widget.create_split_pane
-    @list = Widget.create :table_widget, self
-    @editor = Widget.create_tinymce_editor
-    @list.set_columns self.get_columns
-    @split.add @list
-    @split.add @editor
-    @win.add @split, {edge: 'center'}
-    @list.on :changeSelection, :on_change_selection
-end # def
-
-def clear
-    @id = -1
-    @text_field.setValue ''
-    @editor.set_value ''
-end # def
-
-def default_buttons
-    [
-        ['Refresh', :on_refresh],
-        ['Save', :on_save, [[:getValue, @text_field], [:get_value, @editor]]],
-        ['New', :on_new],
-        ['Delete', :on_delete]
-    ]
-end # def
-
-def default_caption
-    'Help Browser'
-end # def
-
-def default_height
-    375
-end # def
-
-def default_width
-    525
-end # def
-
-def get_columns
-    Model.model_columns self.get_model_name
-end # def
-
-def get_data
-    Model.model_data self.get_model_name
-end # def
-
-def get_fields
-    Model.model_fields self.get_model_name
-end # def
-
-def get_model_name
-    :help
-end # def
-
-def on_change_selection(id)
-    record = Model.model_record self.get_model_name, id
-    @id = record['id']
-    @text_field.setValue record['topic']
-    @editor.set_value record['text']
-end # def
-
-def on_delete
-    Model.model_delete self.get_model_name, @id
-    self.refresh
-end # def
-
-def on_new
-    self.clear
-end # def
-
-def on_refresh
-    self.refresh
-end # def
-
-def on_save(topic, text)
-    Model.model_save self.get_model_name, @id, topic, text
-    self.refresh
-end # def
-
-def refresh
-    @list.set_data self.get_data
-    self.clear
-end # def
-
-end # class
-
-class MessageBox < Window
+class MessageBox < ToolWindow
 
 def self.msg(text)
     mb = self.open
@@ -569,121 +997,7 @@ end # def
 
 end # class
 
-class ModelBrowserWindow < Window
-
-def add_content
-    @split = Widget.create_split_pane
-    @list = Widget.create :table_widget, self
-    @form = Widget.create_form
-    @list.set_columns self.get_columns
-    @form.add_fields self.get_fields
-    @split.add @list
-    @split.add @form
-    @win.add @split, {edge: 'center'}
-    @list.on :changeSelection, :on_change_selection
-end # def
-
-def default_buttons
-    [
-        ['Refresh', :refresh]
-    ]
-end # def
-
-def default_caption
-    'Model Browser'
-end # def
-
-def default_height
-    375
-end # def
-
-def default_width
-    525
-end # def
-
-def get_columns
-    Model.model_columns self.get_model_name
-end # def
-
-def get_data
-    Model.model_data self.get_model_name
-end # def
-
-def get_fields
-    Model.model_fields self.get_model_name
-end # def
-
-def get_model_name
-    :dummy
-end # def
-
-def list
-    @list
-end # def
-
-def on_appear
-    self.refresh
-end # def
-
-def on_change_selection(id)
-    record = Model.model_record self.get_model_name, id
-    @form.update record
-end # def
-
-def refresh
-    @list.set_data self.get_data
-end # def
-
-end # class
-
-class MessageBrowserWindow < ModelBrowserWindow
-
-def default_caption
-    'Message Browser'
-end # def
-
-def get_model_name
-    :message
-end # def
-
-end # class
-
-class UserBrowserWindow < ModelBrowserWindow
-
-def default_caption
-    'User Browser'
-end # def
-
-def get_model_name
-    :user
-end # def
-
-end # class
-
-class PaperWindow < Window
-
-def add_content
-    @paper = Widget.create_paper
-    @win.add @paper
-end # def
-
-def default_buttons
-    [
-        ['Clear', :on_clear]
-    ]
-end # def
-
-def default_caption
-    'Paper Graphics'
-end # def
-
-def on_clear
-    @paper.clear
-end # def
-
-end # class
-
-class TranscriptWindow < Window
+class TranscriptWindow < ToolWindow
 
 def self.open
     $transcript = super.open
@@ -707,7 +1021,7 @@ def default_caption
 end # def
 
 def default_location
-    [7, 7]
+    [7, 52]
 end # def
 
 def default_width
@@ -718,9 +1032,13 @@ def prn(x)
     print @text, x
 end # def
 
+def set_taller
+    self.win.setHeight self.default_height + 100
+end # def
+
 end # class
 
-class WorkspaceWindow < Window
+class WorkspaceWindow < ToolWindow
 
 def add_content
     @split = Widget.create_split_pane
