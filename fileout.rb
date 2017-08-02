@@ -2,7 +2,7 @@
 # Rails Express
 # fileout.rb
 #
-# 2017-08-01 17:20:56 UTC
+# 2017-08-02 20:09:05 UTC
 # ==========================
 
 class Object
@@ -11,6 +11,10 @@ def self.create
     obj = self.new
     obj.initialize
     obj
+end # def
+
+def self.prn(s)
+    $transcript.prn s
 end # def
 
 def self.test
@@ -44,7 +48,34 @@ def initialize
 end # def
 
 def prn(s)
-    $transcript.prn s
+    self.klass.prn s
+end # def
+
+end # class
+
+class Admin < Object
+end # class
+
+class AppAdmin < Admin
+
+def self.start
+    AppBrowserWindow.open
+end # def
+
+end # class
+
+class DataAdmin < Admin
+
+def self.start
+    DataAdminWindow.open
+end # def
+
+end # class
+
+class HelpAdmin < Admin
+
+def self.start
+    HelpBrowserWindow.open
 end # def
 
 end # class
@@ -60,10 +91,13 @@ end # class
 class Demo < Application
 end # class
 
-class PaperDemo < Demo
+class PizzaDelivery < Demo
 
-def self.open
-    PaperWindow.open
+def self.start
+    # PizzaDelivery.start
+    TranscriptWindow.open
+    $transcript.set_taller
+    PizzaDeliveryWindow.open
 end # def
 
 end # class
@@ -82,67 +116,136 @@ end # def
 
 end # class
 
-class Behavior < Object
+class Database < Object
 end # class
 
-class Class < Behavior
+class DataMigrations < Database
 end # class
 
-class MetaClass
-end # class
-
-class Boolean < Object
-end # class
-
-class False < Boolean
-end # class
-
-class True < Boolean
-end # class
-
-class Collection < Object
-end # class
-
-class OrderedCollection < Collection
-end # class
-
-class Array < OrderedCollection
-end # class
-
-class Context < Object
-end # class
-
-class Block < Context
-end # class
-
-class MethodContext < Context
-end # class
-
-class Kernel < Object
-end # class
-
-class CompiledMethod < Kernel
-end # class
-
-class Model < Kernel
-end # class
-
-class Vm < Kernel
-end # class
-
-class Magnitude < Object
-end # class
-
-class Number < Magnitude
-end # class
-
-class Float < Number
-end # class
-
-class Integer < Number
+class DataSeeding < Database
 end # class
 
 class Ui < Object
+end # class
+
+class Component < Ui
+
+def create_widget
+    @widget = Widget.create_textarea
+end # def
+
+def initialize
+    self.create_widget
+    @owner = nil
+end # def
+
+def owner
+    @owner
+end # def
+
+def set_owner(object)
+    @owner = object
+end # def
+
+def widget
+    @widget
+end # def
+
+end # class
+
+class PizzaDeliveryPage < Component
+
+def clear
+
+end # def
+
+def create_widget
+    @widget = Widget.create_tabpage
+    @widget.setLabel self.get_label
+    @widget.setLayout Widget.create_dock
+end # def
+
+end # class
+
+class PizzaDeliveryMessagesPage < PizzaDeliveryPage
+
+def add_detail
+    @form = Widget.create_form
+    @form.add_fields self.get_fields
+    @split.add @form
+end # def
+
+def add_list
+    @list = Widget.create :table_widget, self
+    @list.set_columns self.get_columns
+    @list.on :changeSelection, :on_change_selection
+    @split.add @list
+end # def
+
+def create_widget
+    super.create_widget
+    @split = Widget.create 'qx.ui.splitpane.Pane', nil, 'vertical'
+    self.add_list
+    self.add_detail
+    @widget.add @split, {edge: 'center'}
+end # def
+
+def get_columns
+    Model.model_columns self.get_model_name
+end # def
+
+def get_fields
+    Model.model_fields self.get_model_name
+end # def
+
+def get_label
+    'Messages'
+end # def
+
+def get_model_name
+    :pizza_message
+end # def
+
+end # class
+
+class PizzaDeliveryOrderPage < PizzaDeliveryPage
+
+def clear
+    @form.reset
+end # def
+
+def create_widget
+    super.create_widget
+    @form = Widget.create_form
+    @form.add_fields self.get_fields
+    @widget.add @form
+end # def
+
+def get_fields
+    Model.model_fields self.get_model_name
+end # def
+
+def get_label
+    'Order'
+end # def
+
+def get_model_name
+    :pizza_order
+end # def
+
+def update(record)
+    @form.update record
+end # def
+
+end # class
+
+class Viewport < Ui
+end # class
+
+class AppViewport < Viewport
+end # class
+
+class DevViewport < Viewport
 end # class
 
 class Widget < Ui
@@ -187,6 +290,14 @@ def self.create_split_pane
     self.create 'qx.ui.splitpane.Pane'
 end # def
 
+def self.create_tabpage
+    self.create 'qx.ui.tabview.Page'
+end # def
+
+def self.create_tabview
+    self.create 'qx.ui.tabview.TabView'
+end # def
+
 def self.create_textarea
     self.create 'qx.ui.form.TextArea'
 end # def
@@ -227,9 +338,6 @@ class TabView < Widget
 end # class
 
 class Tree < Widget
-end # class
-
-class Viewport < Widget
 end # class
 
 class Window < Ui
@@ -378,6 +486,171 @@ end # def
 
 def win
     @win
+end # def
+
+end # class
+
+class AdminWindow < Window
+
+def default_height
+    475
+end # def
+
+def default_width
+    575
+end # def
+
+end # class
+
+class DataAdminWindow < AdminWindow
+
+def default_caption
+    'Data Administration'
+end # def
+
+end # class
+
+class DemoWindow < Window
+
+def default_height
+    475
+end # def
+
+def default_width
+    575
+end # def
+
+end # class
+
+class PizzaDeliveryWindow < DemoWindow
+
+def add_content
+    @split = Widget.create_split_pane
+    self.add_list
+    self.add_tabs
+    @win.add @split, {edge: 'center'}
+end # def
+
+def add_list
+    @list = Widget.create :table_widget, self
+    @list.set_columns self.get_columns
+    @split.add @list
+    @list.on :changeSelection, :on_change_selection
+end # def
+
+def add_tabs
+    @tabs = Widget.create_tabview
+    @tabs.setContentPadding 0
+    @split.add @tabs
+    @order_page = PizzaDeliveryOrderPage.create
+    @messages_page = PizzaDeliveryMessagesPage.create
+    @tabs.add @order_page.widget
+    @tabs.add @messages_page.widget
+end # def
+
+def clear
+    @list.reset_selection
+    @order_page.clear
+    @messages_page.clear
+end # def
+
+def default_buttons
+    [
+        ['Refresh', :on_refresh],
+        ['New', :on_new],
+        ['Ready', :on_ready],
+        ['Picked Up', :on_picked_up],
+        ['Driver', :on_driver],
+        ['Delivered', :on_delivered],
+        ['Cancel Order', :on_cancel],
+        ['Send Message', :on_send_message]
+    ]
+end # def
+
+def default_caption
+    'Pizza Delivery Application'
+end # def
+
+def format_rec(rec)
+    id = rec[0]
+    raw_time = rec[1]
+    code = rec[2]
+    status = rec[3]
+    time = self.format_time raw_time
+    [id, time, code, status]
+end # def
+
+def format_time(raw_time)
+    raw_time.to_s.slice 11,8
+end # def
+
+def get_columns
+    Model.model_columns self.get_model_name
+end # def
+
+def get_data
+    raw_data = Model.model_data self.get_model_name
+    data = []
+    i = 0
+    while i < raw_data.size
+        rec = raw_data[i]
+        data.push(self.format_rec rec)
+        i += 1
+    end
+    data
+end # def
+
+def get_model_name
+    :pizza_order
+end # def
+
+def on_appear
+    self.refresh
+end # def
+
+def on_cancel
+    self.prn 'on_cancel'
+end # def
+
+def on_change_selection(id)
+    record = Model.model_record self.get_model_name, id
+    unless record.nil?
+        @id = id
+        @order_page.update record
+    end
+end # def
+
+def on_delivered
+    self.prn 'on_delivered'
+end # def
+
+def on_driver
+    self.prn 'on_driver'
+end # def
+
+def on_new
+    self.prn 'on_new'
+end # def
+
+def on_picked_up
+    self.prn 'on_picked_up'
+end # def
+
+def on_ready
+    self.prn 'on_ready'
+end # def
+
+def on_refresh
+    self.refresh
+end # def
+
+def on_send_message
+    self.prn 'on_send_message'
+end # def
+
+def refresh
+    @list.set_data self.get_data
+    self.clear
 end # def
 
 end # class
@@ -1084,6 +1357,66 @@ end # def
 
 end # class
 
-class UndefinedObject < Object
+class Vm < Object
+end # class
+
+class Behavior < Vm
+end # class
+
+class Class < Behavior
+end # class
+
+class MetaClass
+end # class
+
+class Boolean < Vm
+end # class
+
+class False < Boolean
+end # class
+
+class True < Boolean
+end # class
+
+class Collection < Vm
+end # class
+
+class OrderedCollection < Collection
+end # class
+
+class Array < OrderedCollection
+end # class
+
+class Context < Vm
+end # class
+
+class Block < Context
+end # class
+
+class MethodContext < Context
+end # class
+
+class Kernel < Vm
+end # class
+
+class CompiledMethod < Kernel
+end # class
+
+class Model < Kernel
+end # class
+
+class Magnitude < Vm
+end # class
+
+class Number < Magnitude
+end # class
+
+class Float < Number
+end # class
+
+class Integer < Number
+end # class
+
+class UndefinedObject < Vm
 end # class
 
